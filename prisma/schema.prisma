@@ -1,0 +1,766 @@
+// ===========================================
+// Finance Control - Prisma Schema
+// ===========================================
+// Este schema segue os princípios de:
+// - Precisão monetária com Decimal (nunca float)
+// - Auditoria completa de todas as operações
+// - Multi-tenancy por organização
+// - Suporte multimoedas nativo
+// ===========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================
+// ENUMS
+// ===========================================
+
+enum Currency {
+  BRL // Real Brasileiro
+  USD // Dólar Americano
+  EUR // Euro
+}
+
+enum AccountType {
+  CHECKING      // Conta Corrente
+  SAVINGS       // Poupança
+  INVESTMENT    // Conta de Investimento
+  CREDIT_CARD   // Cartão de Crédito
+  CASH          // Dinheiro em Espécie
+  DIGITAL_WALLET // Carteira Digital (PicPay, etc)
+  OTHER         // Outros
+}
+
+enum TransactionType {
+  INCOME   // Receita
+  EXPENSE  // Despesa
+  TRANSFER // Transferência entre contas
+}
+
+enum TransactionStatus {
+  PENDING   // Pendente (agendado)
+  COMPLETED // Efetivado
+  CANCELLED // Cancelado
+}
+
+enum RecurrenceType {
+  NONE      // Sem recorrência
+  DAILY     // Diário
+  WEEKLY    // Semanal
+  BIWEEKLY  // Quinzenal
+  MONTHLY   // Mensal
+  BIMONTHLY // Bimestral
+  QUARTERLY // Trimestral
+  SEMIANNUAL // Semestral
+  ANNUAL    // Anual
+}
+
+enum AssetClass {
+  // Renda Variável
+  STOCK           // Ações
+  OPTION          // Opções
+  FII             // Fundos Imobiliários
+  ETF             // ETFs
+  BDR             // BDRs
+  SUBSCRIPTION    // Direitos de Subscrição
+
+  // Renda Fixa
+  CDB             // CDB
+  LCI             // LCI
+  LCA             // LCA
+  TREASURY        // Tesouro Direto
+  DEBENTURE       // Debêntures
+  FUND            // Fundos de Investimento
+  PENSION         // Previdência (PGBL, VGBL)
+
+  // Derivativos
+  FUTURE_DOL      // Dólar Futuro
+  FUTURE_WDO      // Mini Dólar
+  FUTURE_IND      // Índice Futuro
+  FUTURE_WIN      // Mini Índice
+  FUTURE_OTHER    // Outros Futuros
+
+  // Internacional
+  STOCK_US        // Ações Americanas
+  REIT            // REITs
+  ETF_INTL        // ETFs Internacionais
+
+  // Outros
+  CRYPTO          // Criptomoedas
+  FOREX           // Moedas
+  REAL_ESTATE     // Imóveis
+  VEHICLE         // Veículos
+  PRECIOUS_METAL  // Metais Preciosos
+  OTHER           // Outros
+}
+
+enum OperationType {
+  BUY             // Compra
+  SELL            // Venda
+  DIVIDEND        // Dividendo
+  JCP             // Juros sobre Capital Próprio
+  BONUS           // Bonificação
+  SPLIT           // Desdobramento
+  INPLIT          // Grupamento
+  SUBSCRIPTION    // Subscrição
+  AMORTIZATION    // Amortização
+  INCOME          // Rendimento
+  EXERCISE        // Exercício de Opção
+  TRANSFER_IN     // Transferência de Entrada
+  TRANSFER_OUT    // Transferência de Saída
+  FEE             // Taxa
+  TAX             // Imposto
+}
+
+enum GoalType {
+  BUDGET      // Meta de Orçamento (limite de gasto)
+  INVESTMENT  // Meta de Investimento
+  SAVINGS     // Meta de Economia
+}
+
+enum OrganizationType {
+  PERSONAL    // Pessoa Física
+  BUSINESS    // Empresa
+}
+
+enum UserRole {
+  OWNER       // Proprietário (acesso total)
+  ADMIN       // Administrador
+  MEMBER      // Membro (acesso restrito)
+  VIEWER      // Visualizador (somente leitura)
+}
+
+// ===========================================
+// AUTENTICAÇÃO E USUÁRIOS
+// ===========================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String   @map("password_hash")
+  name          String
+  avatarUrl     String?  @map("avatar_url")
+  emailVerified Boolean  @default(false) @map("email_verified")
+  mfaEnabled    Boolean  @default(false) @map("mfa_enabled")
+  mfaSecret     String?  @map("mfa_secret")
+
+  // Preferências
+  defaultCurrency Currency @default(BRL) @map("default_currency")
+  locale          String   @default("pt-BR")
+  timezone        String   @default("America/Sao_Paulo")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  lastLoginAt DateTime? @map("last_login_at")
+
+  // Relacionamentos
+  memberships  OrganizationMember[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  userAgent String?  @map("user_agent")
+  ipAddress String?  @map("ip_address")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+// ===========================================
+// ORGANIZAÇÕES (Multi-tenant)
+// ===========================================
+
+model Organization {
+  id   String           @id @default(cuid())
+  name String
+  type OrganizationType @default(PERSONAL)
+
+  // Configurações
+  defaultCurrency Currency @default(BRL) @map("default_currency")
+  fiscalYearStart Int      @default(1) @map("fiscal_year_start") // Mês de início do ano fiscal (1-12)
+
+  // Dados fiscais (para empresas)
+  taxId     String? @map("tax_id") // CNPJ ou CPF
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  members       OrganizationMember[]
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  costCenters   CostCenter[]
+  projects      Project[]
+  contacts      Contact[]
+  goals         Goal[]
+  assets        Asset[]
+  assetOperations AssetOperation[]
+  auditLogs     AuditLog[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  role           UserRole @default(MEMBER)
+
+  // Permissões granulares (JSON para flexibilidade)
+  permissions Json @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+// ===========================================
+// CONTAS FINANCEIRAS
+// ===========================================
+
+model Account {
+  id             String      @id @default(cuid())
+  organizationId String      @map("organization_id")
+  name           String
+  type           AccountType
+  currency       Currency    @default(BRL)
+
+  // Saldo inicial (para reconciliação)
+  initialBalance Decimal @default(0) @map("initial_balance") @db.Decimal(19, 4)
+  initialDate    DateTime @default(now()) @map("initial_date")
+
+  // Configurações do cartão de crédito
+  creditLimit     Decimal?  @map("credit_limit") @db.Decimal(19, 4)
+  closingDay      Int?      @map("closing_day")      // Dia de fechamento da fatura
+  dueDay          Int?      @map("due_day")          // Dia de vencimento
+
+  // Dados bancários (para integração)
+  bankCode      String? @map("bank_code")
+  agencyNumber  String? @map("agency_number")
+  accountNumber String? @map("account_number")
+
+  // Status
+  isActive  Boolean @default(true) @map("is_active")
+  isArchived Boolean @default(false) @map("is_archived")
+
+  // Cor e ícone para UI
+  color String @default("#6366f1")
+  icon  String @default("wallet")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization         Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactionsFrom     Transaction[] @relation("TransactionFromAccount")
+  transactionsTo       Transaction[] @relation("TransactionToAccount")
+
+  @@index([organizationId])
+  @@index([organizationId, type])
+  @@map("accounts")
+}
+
+// ===========================================
+// CATEGORIAS
+// ===========================================
+
+model Category {
+  id             String          @id @default(cuid())
+  organizationId String          @map("organization_id")
+  parentId       String?         @map("parent_id")
+  name           String
+  type           TransactionType
+
+  // Aparência
+  color String @default("#6366f1")
+  icon  String @default("tag")
+
+  // Ordenação
+  sortOrder Int @default(0) @map("sort_order")
+
+  // Status
+  isActive   Boolean @default(true) @map("is_active")
+  isSystem   Boolean @default(false) @map("is_system") // Categorias do sistema não podem ser deletadas
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization  Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent        Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children      Category[]    @relation("CategoryHierarchy")
+  transactions  Transaction[]
+  goals         Goal[]
+
+  @@unique([organizationId, parentId, name])
+  @@index([organizationId])
+  @@index([organizationId, type])
+  @@map("categories")
+}
+
+// ===========================================
+// TRANSAÇÕES
+// ===========================================
+
+model Transaction {
+  id             String            @id @default(cuid())
+  organizationId String            @map("organization_id")
+
+  // Tipo e status
+  type   TransactionType
+  status TransactionStatus @default(COMPLETED)
+
+  // Valores (sempre positivos, o type determina o sinal)
+  amount   Decimal  @db.Decimal(19, 4)
+  currency Currency @default(BRL)
+
+  // Taxa de câmbio (quando diferente da moeda da conta)
+  exchangeRate Decimal? @map("exchange_rate") @db.Decimal(19, 8)
+
+  // Descrição
+  description String
+  notes       String?
+
+  // Datas
+  date         DateTime                // Data da transação
+  competenceDate DateTime? @map("competence_date") // Data de competência (pode diferir da data de caixa)
+
+  // Relacionamentos com outras entidades
+  accountId    String    @map("account_id")
+  toAccountId  String?   @map("to_account_id") // Para transferências
+  categoryId   String    @map("category_id")
+  costCenterId String?   @map("cost_center_id")
+  projectId    String?   @map("project_id")
+  contactId    String?   @map("contact_id")
+
+  // Recorrência
+  recurrenceType    RecurrenceType @default(NONE) @map("recurrence_type")
+  recurrenceEndDate DateTime?      @map("recurrence_end_date")
+  recurrenceParentId String?       @map("recurrence_parent_id")
+
+  // Anexos e tags
+  attachments Json @default("[]") // Array de URLs
+  tags        Json @default("[]") // Array de strings
+
+  // Conciliação bancária
+  isReconciled    Boolean   @default(false) @map("is_reconciled")
+  reconciledAt    DateTime? @map("reconciled_at")
+  externalId      String?   @map("external_id") // ID da transação no banco
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account          Account       @relation("TransactionFromAccount", fields: [accountId], references: [id])
+  toAccount        Account?      @relation("TransactionToAccount", fields: [toAccountId], references: [id])
+  category         Category      @relation(fields: [categoryId], references: [id])
+  costCenter       CostCenter?   @relation(fields: [costCenterId], references: [id])
+  project          Project?      @relation(fields: [projectId], references: [id])
+  contact          Contact?      @relation(fields: [contactId], references: [id])
+  recurrenceParent Transaction?  @relation("RecurrentTransactions", fields: [recurrenceParentId], references: [id])
+  recurrenceChildren Transaction[] @relation("RecurrentTransactions")
+
+  @@index([organizationId])
+  @@index([organizationId, date])
+  @@index([organizationId, type])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, accountId])
+  @@index([organizationId, status])
+  @@index([accountId, date])
+  @@map("transactions")
+}
+
+// ===========================================
+// CENTROS DE CUSTO
+// ===========================================
+
+model CostCenter {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  parentId       String? @map("parent_id")
+  name           String
+  code           String? // Código interno (ex: CC001)
+
+  // Aparência
+  color String @default("#6366f1")
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       CostCenter?   @relation("CostCenterHierarchy", fields: [parentId], references: [id])
+  children     CostCenter[]  @relation("CostCenterHierarchy")
+  transactions Transaction[]
+  goals        Goal[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("cost_centers")
+}
+
+// ===========================================
+// PROJETOS
+// ===========================================
+
+model Project {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  description    String?
+
+  // Orçamento
+  budget   Decimal?  @db.Decimal(19, 4)
+  currency Currency  @default(BRL)
+
+  // Datas
+  startDate DateTime? @map("start_date")
+  endDate   DateTime? @map("end_date")
+
+  // Aparência
+  color String @default("#6366f1")
+
+  // Status
+  isActive   Boolean @default(true) @map("is_active")
+  isArchived Boolean @default(false) @map("is_archived")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([organizationId])
+  @@map("projects")
+}
+
+// ===========================================
+// CONTATOS (Clientes e Fornecedores)
+// ===========================================
+
+model Contact {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+
+  // Dados básicos
+  name     String
+  email    String?
+  phone    String?
+  taxId    String? @map("tax_id") // CPF ou CNPJ
+
+  // Endereço
+  address     String?
+  city        String?
+  state       String?
+  postalCode  String? @map("postal_code")
+  country     String  @default("BR")
+
+  // Tipo
+  isCustomer Boolean @default(false) @map("is_customer")
+  isSupplier Boolean @default(false) @map("is_supplier")
+
+  // Notas
+  notes String?
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([organizationId])
+  @@index([organizationId, isCustomer])
+  @@index([organizationId, isSupplier])
+  @@map("contacts")
+}
+
+// ===========================================
+// METAS
+// ===========================================
+
+model Goal {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  name           String
+  type           GoalType
+
+  // Valor alvo
+  targetAmount Decimal  @map("target_amount") @db.Decimal(19, 4)
+  currency     Currency @default(BRL)
+
+  // Período
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
+  // Associações opcionais
+  categoryId   String? @map("category_id")
+  costCenterId String? @map("cost_center_id")
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     Category?    @relation(fields: [categoryId], references: [id])
+  costCenter   CostCenter?  @relation(fields: [costCenterId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, type])
+  @@map("goals")
+}
+
+// ===========================================
+// ATIVOS DE INVESTIMENTO
+// ===========================================
+
+model Asset {
+  id             String     @id @default(cuid())
+  organizationId String     @map("organization_id")
+
+  // Identificação
+  ticker      String     // Código do ativo (PETR4, BTC, etc.)
+  name        String     // Nome completo
+  assetClass  AssetClass @map("asset_class")
+
+  // Moeda do ativo
+  currency Currency @default(BRL)
+
+  // Dados específicos por tipo
+  // Para Renda Fixa
+  issuer          String?   // Emissor
+  maturityDate    DateTime? @map("maturity_date") // Data de vencimento
+  indexer         String?   // Indexador (CDI, IPCA, etc.)
+  rate            Decimal?  @db.Decimal(10, 6) // Taxa contratada
+
+  // Para Imóveis
+  address         String?
+  registrationNumber String? @map("registration_number")
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  operations   AssetOperation[]
+
+  @@unique([organizationId, ticker, assetClass])
+  @@index([organizationId])
+  @@index([organizationId, assetClass])
+  @@map("assets")
+}
+
+model AssetOperation {
+  id             String        @id @default(cuid())
+  organizationId String        @map("organization_id")
+  assetId        String        @map("asset_id")
+
+  // Tipo de operação
+  operationType OperationType @map("operation_type")
+
+  // Data da operação
+  date DateTime
+
+  // Quantidade e preço
+  quantity    Decimal  @db.Decimal(19, 8) // 8 casas para cripto e fracionário
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(19, 8)
+  totalAmount Decimal  @map("total_amount") @db.Decimal(19, 4)
+  currency    Currency @default(BRL)
+
+  // Custos
+  brokerageFee Decimal @default(0) @map("brokerage_fee") @db.Decimal(19, 4)
+  otherFees    Decimal @default(0) @map("other_fees") @db.Decimal(19, 4)
+  taxes        Decimal @default(0) @db.Decimal(19, 4) // IR retido na fonte, etc.
+
+  // Para opções e derivativos
+  strikePrice    Decimal?  @map("strike_price") @db.Decimal(19, 4)
+  expirationDate DateTime? @map("expiration_date")
+
+  // Notas
+  notes String?
+
+  // Referência externa (nota de corretagem, etc.)
+  externalRef String? @map("external_ref")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  asset        Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, date])
+  @@index([assetId])
+  @@index([assetId, date])
+  @@map("asset_operations")
+}
+
+// ===========================================
+// AUDITORIA
+// ===========================================
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+
+  // Ação
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, etc.
+  entityType  String   @map("entity_type") // Transaction, Account, etc.
+  entityId    String?  @map("entity_id")
+
+  // Dados da mudança
+  oldValues Json? @map("old_values")
+  newValues Json? @map("new_values")
+
+  // Metadados
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+
+  // Timestamp (imutável)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relacionamentos
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId])
+  @@index([organizationId, entityType])
+  @@index([organizationId, createdAt])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+// ===========================================
+// ÍNDICES DE BENCHMARK (para comparação de investimentos)
+// ===========================================
+
+model BenchmarkIndex {
+  id   String @id @default(cuid())
+  code String @unique // CDI, IPCA, IBOV, SELIC, SP500, etc.
+  name String
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  values BenchmarkValue[]
+
+  @@map("benchmark_indexes")
+}
+
+model BenchmarkValue {
+  id      String   @id @default(cuid())
+  indexId String   @map("index_id")
+  date    DateTime
+  value   Decimal  @db.Decimal(19, 8)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relacionamentos
+  index BenchmarkIndex @relation(fields: [indexId], references: [id], onDelete: Cascade)
+
+  @@unique([indexId, date])
+  @@index([indexId])
+  @@index([indexId, date])
+  @@map("benchmark_values")
+}
+
+// ===========================================
+// COTAÇÕES DE ATIVOS
+// ===========================================
+
+model AssetQuote {
+  id       String   @id @default(cuid())
+  ticker   String
+  date     DateTime
+
+  // Preços
+  open     Decimal? @db.Decimal(19, 8)
+  high     Decimal? @db.Decimal(19, 8)
+  low      Decimal? @db.Decimal(19, 8)
+  close    Decimal  @db.Decimal(19, 8)
+
+  // Volume
+  volume Decimal? @db.Decimal(19, 2)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([ticker, date])
+  @@index([ticker])
+  @@index([ticker, date])
+  @@map("asset_quotes")
+}
+
+// ===========================================
+// TAXAS DE CÂMBIO
+// ===========================================
+
+model ExchangeRate {
+  id           String   @id @default(cuid())
+  fromCurrency Currency @map("from_currency")
+  toCurrency   Currency @map("to_currency")
+  date         DateTime
+  rate         Decimal  @db.Decimal(19, 8)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([fromCurrency, toCurrency, date])
+  @@index([fromCurrency, toCurrency])
+  @@index([fromCurrency, toCurrency, date])
+  @@map("exchange_rates")
+}
