@@ -1,220 +1,207 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { DashboardLayout } from '../components/DashboardLayout';
 import Link from 'next/link';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  defaultCurrency: string;
-}
-
 export default function DashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/auth/me');
-        if (!response.ok) {
-          router.push('/login');
-          return;
-        }
-        const data = await response.json();
-        setUser(data.user);
-      } catch {
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
-
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-5 w-5"
-                >
-                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-              </div>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                Finance Control
-              </span>
-            </div>
+    <DashboardLayout>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Visão Geral
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Resumo das suas finanças
+        </p>
+      </div>
 
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Olá, {user?.name}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <SummaryCard
+          title="Saldo Total"
+          value="R$ 0,00"
+          change="+0%"
+          changeType="neutral"
+          icon={<WalletIcon />}
+        />
+        <SummaryCard
+          title="Receitas (mês)"
+          value="R$ 0,00"
+          change="+0%"
+          changeType="positive"
+          icon={<ArrowUpIcon />}
+        />
+        <SummaryCard
+          title="Despesas (mês)"
+          value="R$ 0,00"
+          change="+0%"
+          changeType="negative"
+          icon={<ArrowDownIcon />}
+        />
+        <SummaryCard
+          title="Investimentos"
+          value="R$ 0,00"
+          change="+0%"
+          changeType="neutral"
+          icon={<ChartIcon />}
+        />
+      </div>
+
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Transactions */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Recent Transactions */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Últimas Transações
+              </h2>
+              <Link
+                href="/transactions"
+                className="text-sm text-primary hover:text-primary/80"
               >
-                Sair
-              </button>
+                Ver todas
+              </Link>
+            </div>
+            <div className="p-4">
+              <EmptyState
+                message="Nenhuma transação registrada"
+                actionLabel="Adicionar transação"
+                actionHref="/transactions/new"
+              />
+            </div>
+          </div>
+
+          {/* Cashflow Chart Placeholder */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Fluxo de Caixa
+              </h2>
+              <select className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option>Últimos 30 dias</option>
+                <option>Últimos 60 dias</option>
+                <option>Últimos 90 dias</option>
+              </select>
+            </div>
+            <div className="p-4 h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
+              <p>Gráfico de fluxo de caixa será exibido aqui</p>
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Visão geral das suas finanças
-          </p>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <SummaryCard
-            title="Saldo Total"
-            value="R$ 0,00"
-            icon={<WalletIcon />}
-            color="blue"
-          />
-          <SummaryCard
-            title="Receitas (mês)"
-            value="R$ 0,00"
-            icon={<ArrowUpIcon />}
-            color="green"
-          />
-          <SummaryCard
-            title="Despesas (mês)"
-            value="R$ 0,00"
-            icon={<ArrowDownIcon />}
-            color="red"
-          />
-          <SummaryCard
-            title="Investimentos"
-            value="R$ 0,00"
-            icon={<ChartIcon />}
-            color="purple"
-          />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Ações Rápidas
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <QuickActionButton
-              label="Nova Transação"
-              icon={<PlusIcon />}
-              href="/transactions/new"
-            />
-            <QuickActionButton
-              label="Nova Conta"
-              icon={<BankIcon />}
-              href="/accounts/new"
-            />
-            <QuickActionButton
-              label="Novo Investimento"
-              icon={<ChartIcon />}
-              href="/investments/new"
-            />
-            <QuickActionButton
-              label="Relatórios"
-              icon={<ReportIcon />}
-              href="/reports"
-            />
-          </div>
-        </div>
-
-        {/* Recent Transactions */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Transações Recentes
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Quick Actions */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Ações Rápidas
             </h2>
-            <Link
-              href="/transactions"
-              className="text-sm text-primary hover:text-primary/80"
-            >
-              Ver todas
-            </Link>
+            <div className="space-y-2">
+              <QuickActionButton
+                label="Nova Transação"
+                icon={<PlusIcon />}
+                href="/transactions/new"
+              />
+              <QuickActionButton
+                label="Nova Conta"
+                icon={<BankIcon />}
+                href="/accounts/new"
+              />
+              <QuickActionButton
+                label="Novo Investimento"
+                icon={<ChartIcon />}
+                href="/investments/new"
+              />
+              <QuickActionButton
+                label="Importar OFX/CSV"
+                icon={<UploadIcon />}
+                href="/import"
+              />
+            </div>
           </div>
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <p>Nenhuma transação registrada ainda.</p>
-            <Link
-              href="/transactions/new"
-              className="inline-block mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-            >
-              Adicionar primeira transação
-            </Link>
+
+          {/* Upcoming Bills */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Próximas Contas
+              </h2>
+              <Link
+                href="/payables"
+                className="text-sm text-primary hover:text-primary/80"
+              >
+                Ver todas
+              </Link>
+            </div>
+            <div className="p-4">
+              <EmptyState
+                message="Nenhuma conta a pagar"
+                actionLabel="Adicionar conta"
+                actionHref="/payables/new"
+              />
+            </div>
+          </div>
+
+          {/* Budget Progress */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Orçamento do Mês
+              </h2>
+              <Link
+                href="/budget"
+                className="text-sm text-primary hover:text-primary/80"
+              >
+                Configurar
+              </Link>
+            </div>
+            <div className="p-4">
+              <EmptyState
+                message="Orçamento não configurado"
+                actionLabel="Criar orçamento"
+                actionHref="/budget"
+              />
+            </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
 
 function SummaryCard({
   title,
   value,
+  change,
+  changeType,
   icon,
-  color,
 }: {
   title: string;
   value: string;
+  change: string;
+  changeType: 'positive' | 'negative' | 'neutral';
   icon: React.ReactNode;
-  color: 'blue' | 'green' | 'red' | 'purple';
 }) {
-  const colors = {
-    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400',
-    green: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400',
-    red: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400',
-    purple: 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400',
+  const changeColors = {
+    positive: 'text-green-600 dark:text-green-400',
+    negative: 'text-red-600 dark:text-red-400',
+    neutral: 'text-gray-600 dark:text-gray-400',
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-      <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-lg ${colors[color]}`}>{icon}</div>
-        <div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{title}</p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">
-            {value}
-          </p>
-        </div>
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-gray-500 dark:text-gray-400">{icon}</span>
+        <span className={`text-xs font-medium ${changeColors[changeType]}`}>
+          {change}
+        </span>
       </div>
+      <p className="text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
+        {value}
+      </p>
+      <p className="text-sm text-gray-600 dark:text-gray-400">{title}</p>
     </div>
   );
 }
@@ -231,9 +218,9 @@ function QuickActionButton({
   return (
     <Link
       href={href}
-      className="flex flex-col items-center gap-2 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+      className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
     >
-      <div className="text-primary">{icon}</div>
+      <span className="text-primary">{icon}</span>
       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
         {label}
       </span>
@@ -241,10 +228,32 @@ function QuickActionButton({
   );
 }
 
+function EmptyState({
+  message,
+  actionLabel,
+  actionHref,
+}: {
+  message: string;
+  actionLabel: string;
+  actionHref: string;
+}) {
+  return (
+    <div className="text-center py-6">
+      <p className="text-gray-500 dark:text-gray-400 mb-3">{message}</p>
+      <Link
+        href={actionHref}
+        className="inline-block px-4 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary/90"
+      >
+        {actionLabel}
+      </Link>
+    </div>
+  );
+}
+
 // Icons
 function WalletIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
       <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
       <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
@@ -254,7 +263,7 @@ function WalletIcon() {
 
 function ArrowUpIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <path d="m5 12 7-7 7 7" />
       <path d="M12 19V5" />
     </svg>
@@ -263,7 +272,7 @@ function ArrowUpIcon() {
 
 function ArrowDownIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <path d="m19 12-7 7-7-7" />
       <path d="M12 5v14" />
     </svg>
@@ -272,7 +281,7 @@ function ArrowDownIcon() {
 
 function ChartIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <path d="M3 3v18h18" />
       <path d="m19 9-5 5-4-4-3 3" />
     </svg>
@@ -281,7 +290,7 @@ function ChartIcon() {
 
 function PlusIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
       <path d="M5 12h14" />
       <path d="M12 5v14" />
     </svg>
@@ -290,22 +299,25 @@ function PlusIcon() {
 
 function BankIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-      <path d="m2 20 10-10" />
-      <path d="m22 20-10-10" />
-      <path d="M12 2v8" />
-      <path d="M4 22h16" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M3 21h18" />
+      <path d="M3 10h18" />
+      <path d="M5 6l7-3 7 3" />
+      <path d="M4 10v11" />
+      <path d="M20 10v11" />
+      <path d="M8 14v3" />
+      <path d="M12 14v3" />
+      <path d="M16 14v3" />
     </svg>
   );
 }
 
-function ReportIcon() {
+function UploadIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
-      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-      <polyline points="14,2 14,8 20,8" />
-      <line x1="16" x2="8" y1="13" y2="13" />
-      <line x1="16" x2="8" y1="17" y2="17" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" x2="12" y1="3" y2="15" />
     </svg>
   );
 }
