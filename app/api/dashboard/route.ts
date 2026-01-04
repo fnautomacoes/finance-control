@@ -35,9 +35,8 @@ export async function GET(request: NextRequest) {
       accounts,
       transactions,
       categories,
-      creditCards,
       goals,
-      investments,
+      assets,
     ] = await Promise.all([
       // Accounts with balances
       prisma.account.findMany({
@@ -56,35 +55,34 @@ export async function GET(request: NextRequest) {
       prisma.category.findMany({
         where: { organizationId: orgId, isActive: true },
       }),
-      // Credit cards
-      prisma.creditCard.findMany({
-        where: { organizationId: orgId, isActive: true },
-        include: { account: true },
-      }),
       // Goals
       prisma.goal.findMany({
         where: { organizationId: orgId, isActive: true },
       }),
-      // Investments
-      prisma.investment.findMany({
-        where: { organizationId: orgId },
-        include: { transactions: true },
+      // Assets (investments)
+      prisma.asset.findMany({
+        where: { organizationId: orgId, isActive: true },
+        include: { operations: true },
       }),
     ]);
+
+    // Credit cards are accounts with type CREDIT_CARD
+    const creditCardAccounts = accounts.filter(a => a.type === 'CREDIT_CARD');
 
     // Calculate totals
     const totalBankBalance = accounts
       .filter(a => ['CHECKING', 'SAVINGS', 'CASH'].includes(a.type))
       .reduce((sum, a) => sum + Number(a.balance), 0);
 
-    const totalInvestments = investments.reduce((sum, inv) => {
-      const invested = inv.transactions
-        .filter(t => t.type === 'BUY')
-        .reduce((s, t) => s + Number(t.totalValue), 0);
-      const sold = inv.transactions
-        .filter(t => t.type === 'SELL')
-        .reduce((s, t) => s + Number(t.totalValue), 0);
-      return sum + (invested - sold);
+    // Calculate investment totals from assets
+    const totalInvestments = assets.reduce((sum, asset) => {
+      const bought = asset.operations
+        .filter(op => op.operationType === 'BUY')
+        .reduce((s, op) => s + Number(op.totalAmount), 0);
+      const sold = asset.operations
+        .filter(op => op.operationType === 'SELL')
+        .reduce((s, op) => s + Number(op.totalAmount), 0);
+      return sum + (bought - sold);
     }, 0);
 
     // Calculate income and expenses by category
@@ -112,8 +110,9 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Cash results by account
-    const cashResults = accounts.map(account => {
+    // Cash results by account (excluding credit cards)
+    const cashAccounts = accounts.filter(a => a.type !== 'CREDIT_CARD');
+    const cashResults = cashAccounts.map(account => {
       const accountTransactions = transactions.filter(t => t.accountId === account.id);
       const entradas = accountTransactions
         .filter(t => t.type === 'INCOME')
@@ -162,6 +161,12 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Credit card debt from credit card accounts (negative balance = debt)
+    const creditCardDebt = creditCardAccounts.reduce((sum, cc) => {
+      const balance = Number(cc.balance);
+      return sum + (balance < 0 ? Math.abs(balance) : 0);
+    }, 0);
+
     // Balance sheet
     const balanceSheet = {
       ativo: {
@@ -170,22 +175,22 @@ export async function GET(request: NextRequest) {
         total: totalBankBalance + totalInvestments,
       },
       passivo: {
-        devedor: creditCards.reduce((sum, cc) => sum + Number(cc.currentBalance || 0), 0),
-        exigivel: 0, // Could add loans, etc.
-        total: creditCards.reduce((sum, cc) => sum + Number(cc.currentBalance || 0), 0),
+        devedor: creditCardDebt,
+        exigivel: 0,
+        total: creditCardDebt,
       },
     };
 
-    // Format credit cards
-    const formattedCreditCards = creditCards.map(cc => ({
+    // Format credit cards from accounts
+    const formattedCreditCards = creditCardAccounts.map(cc => ({
       id: cc.id,
       name: cc.name,
-      color: cc.color,
-      limit: Number(cc.creditLimit),
-      currentBalance: Number(cc.currentBalance || 0),
-      availableLimit: Number(cc.creditLimit) - Number(cc.currentBalance || 0),
-      closingDay: cc.closingDay,
-      dueDay: cc.dueDay,
+      color: cc.color || '#6366f1',
+      limit: 0, // No limit field in Account model
+      currentBalance: Math.abs(Number(cc.balance)),
+      availableLimit: 0,
+      closingDay: 1,
+      dueDay: 10,
     }));
 
     // Goals with progress
@@ -194,7 +199,7 @@ export async function GET(request: NextRequest) {
       name: g.name,
       targetAmount: Number(g.targetAmount),
       currentAmount: Number(g.currentAmount),
-      progress: (Number(g.currentAmount) / Number(g.targetAmount)) * 100,
+      progress: Number(g.targetAmount) > 0 ? (Number(g.currentAmount) / Number(g.targetAmount)) * 100 : 0,
     }));
 
     return NextResponse.json({
@@ -206,7 +211,7 @@ export async function GET(request: NextRequest) {
         totalIncome,
         totalExpense,
       },
-      accounts: accounts.map(a => ({
+      accounts: cashAccounts.map(a => ({
         id: a.id,
         name: a.name,
         type: a.type,
