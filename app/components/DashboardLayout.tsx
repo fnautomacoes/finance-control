@@ -42,43 +42,81 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f9fafb',
+        }}
+      >
+        <div
+          style={{
+            width: '48px',
+            height: '48px',
+            border: '3px solid #e5e7eb',
+            borderTopColor: '#3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }}
+        />
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content */}
-      <div className="ml-64">
+      <div style={{ marginLeft: '256px' }}>
         {/* Top Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-          <div className="flex justify-between items-center h-14 px-6">
-            <div>
-              {/* Breadcrumb or search can go here */}
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Olá, {user?.name}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                Sair
-              </button>
-            </div>
+        <header
+          style={{
+            backgroundColor: '#ffffff',
+            borderBottom: '1px solid #e5e7eb',
+            position: 'sticky',
+            top: 0,
+            zIndex: 40,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              height: '56px',
+              padding: '0 24px',
+            }}
+          >
+            <span style={{ fontSize: '14px', color: '#6b7280', marginRight: '16px' }}>
+              Olá, {user?.name}
+            </span>
+            <button
+              onClick={handleLogout}
+              style={{
+                fontSize: '14px',
+                fontWeight: 500,
+                color: '#6b7280',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Sair
+            </button>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="p-6">
-          {children}
-        </main>
+        <main style={{ padding: '24px' }}>{children}</main>
       </div>
     </div>
   );
