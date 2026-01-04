@@ -1,0 +1,71 @@
+version: '3.8'
+
+# Docker Compose para desenvolvimento local
+# Uso: docker compose -f docker-compose.dev.yml up -d
+
+services:
+  # PostgreSQL (apenas para dev local)
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance-control-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: finance_control
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./docs/db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis-fc:
+    image: redis:7-alpine
+    container_name: finance-control-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplicação (desenvolvimento)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: finance-control-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-fc:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/finance_control?schema=public
+      REDIS_URL: redis://redis-fc:6379
+      NODE_ENV: development
+      JWT_SECRET: dev-secret-key-change-in-production
+      ENCRYPTION_KEY: dev-encryption-key-32-characters
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - '3000:3000'
+    command: npm run dev
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:

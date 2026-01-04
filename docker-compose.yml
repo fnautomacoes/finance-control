@@ -1,65 +1,83 @@
-version: '3.8'
+version: '3.7'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: finance-control-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: finance_control
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - '5432:5432'
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Redis (for caching and sessions)
-  redis:
+  # Redis (cache e sessões)
+  redis-fc:
     image: redis:7-alpine
-    container_name: finance-control-redis
-    restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
-    ports:
-      - '6379:6379'
+      - redis_fc_data:/data
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == manager-jedy
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - network_swarm_public
 
-  # Application (development)
-  app:
+  # Aplicação Finance Control
+  finance-control:
+    image: finance-control:latest
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    container_name: finance-control-app
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      dockerfile: Dockerfile
     environment:
+      NODE_ENV: production
+      # Ajuste a URL do PostgreSQL conforme seu ambiente
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/finance_control?schema=public
-      REDIS_URL: redis://redis:6379
-      NODE_ENV: development
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
-    ports:
-      - '3000:3000'
-    command: npm run dev
+      REDIS_URL: redis://redis-fc:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-in-production-32ch}
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.hostname == manager-jedy
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.finance-control.rule=Host(`finance.meudominio.com.br`)"
+        - "traefik.http.services.finance-control.loadbalancer.server.port=3000"
+        - "traefik.http.routers.finance-control.service=finance-control"
+        - "traefik.http.routers.finance-control.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.finance-control.entrypoints=websecure"
+        - "traefik.http.routers.finance-control.tls=true"
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:3000/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - network_swarm_public
+
+networks:
+  network_swarm_public:
+    name: network_swarm_public
+    external: true
 
 volumes:
-  postgres_data:
-  redis_data:
+  redis_fc_data:
+    external: true
