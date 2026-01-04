@@ -25,13 +25,25 @@ export default function LoginPage() {
 
       const data = await response.json();
 
+      // Log detalhado no console para debug
+      console.log('=== LOGIN RESPONSE ===');
+      console.log('Status:', response.status);
+      console.log('Data:', JSON.stringify(data, null, 2));
+
       if (!response.ok) {
-        setError(data.error || 'Erro ao fazer login');
+        console.error('=== LOGIN ERROR ===');
+        console.error('Error:', data.error);
+        console.error('Details:', data.details);
+        console.error('Hint:', data.hint);
+        if (data.stack) console.error('Stack:', data.stack);
+
+        setError(data.details || data.error || 'Erro ao fazer login');
         return;
       }
 
       router.push('/dashboard');
-    } catch {
+    } catch (err) {
+      console.error('=== FETCH ERROR ===', err);
       setError('Erro de conexão. Tente novamente.');
     } finally {
       setLoading(false);

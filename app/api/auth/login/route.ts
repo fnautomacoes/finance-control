@@ -83,8 +83,15 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Login error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      {
+        error: 'Erro interno do servidor',
+        details: errorMessage,
+        stack: process.env.NODE_ENV !== 'production' ? errorStack : undefined,
+        hint: 'Verifique a conexão com o banco de dados'
+      },
       { status: 500 }
     );
   }
