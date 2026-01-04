@@ -38,7 +38,7 @@ services:
     environment:
       NODE_ENV: production
       # Ajuste a URL do PostgreSQL conforme seu ambiente
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/financecontrol?schema=public
+      DATABASE_URL: postgresql://postgres:senha@postgres:5432/financecontrol?schema=public
       REDIS_URL: redis://redis-fc:6379
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-change-me-in-production-32ch}
