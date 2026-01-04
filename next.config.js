@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Gera build standalone para Docker
+  output: 'standalone',
   // Configuração para otimização de bundle
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
