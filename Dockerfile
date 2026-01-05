@@ -12,7 +12,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Instala TODAS as dependências (incluindo dev) para o build
-RUN npm ci && npx prisma generate
+# Usa npm install em vez de npm ci para resolver binários SWC corretos para Linux
+RUN npm install && npx prisma generate
 
 # ===============================
 # Stage 2: Builder
