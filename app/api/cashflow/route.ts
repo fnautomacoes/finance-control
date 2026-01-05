@@ -6,14 +6,12 @@ import { AuthService } from '@/infrastructure/services/auth.service';
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get('auth-token')?.value;
-    console.log('[Cashflow API] Token present:', !!token);
 
     if (!token) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
     }
 
     const payload = await AuthService.verifyToken(token);
-    console.log('[Cashflow API] Payload:', payload);
 
     if (!payload) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
@@ -22,10 +20,8 @@ export async function GET(request: NextRequest) {
     const membership = await prisma.organizationMember.findFirst({
       where: { userId: payload.userId },
     });
-    console.log('[Cashflow API] Membership:', membership);
 
     if (!membership) {
-      console.log('[Cashflow API] No membership found for userId:', payload.userId);
       return NextResponse.json({ error: 'Organização não encontrada' }, { status: 404 });
     }
 
