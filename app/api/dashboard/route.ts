@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/infrastructure/database/prisma.service';
 import { AuthService } from '@/infrastructure/services/auth.service';
@@ -67,21 +68,21 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Credit cards are accounts with type CREDIT_CARD
-    const creditCardAccounts = accounts.filter(a => a.type === 'CREDIT_CARD');
+    const creditCardAccounts = accounts.filter((a: any) => a.type === 'CREDIT_CARD');
 
     // Calculate totals
     const totalBankBalance = accounts
-      .filter(a => ['CHECKING', 'SAVINGS', 'CASH'].includes(a.type))
-      .reduce((sum, a) => sum + Number(a.balance), 0);
+      .filter((a: any) => ['CHECKING', 'SAVINGS', 'CASH'].includes(a.type))
+      .reduce((sum: number, a: any) => sum + Number(a.balance), 0);
 
     // Calculate investment totals from assets
-    const totalInvestments = assets.reduce((sum, asset) => {
+    const totalInvestments = assets.reduce((sum: number, asset: any) => {
       const bought = asset.operations
-        .filter(op => op.operationType === 'BUY')
-        .reduce((s, op) => s + Number(op.totalAmount), 0);
+        .filter((op: any) => op.operationType === 'BUY')
+        .reduce((s: number, op: any) => s + Number(op.totalAmount), 0);
       const sold = asset.operations
-        .filter(op => op.operationType === 'SELL')
-        .reduce((s, op) => s + Number(op.totalAmount), 0);
+        .filter((op: any) => op.operationType === 'SELL')
+        .reduce((s: number, op: any) => s + Number(op.totalAmount), 0);
       return sum + (bought - sold);
     }, 0);
 
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
     let totalIncome = 0;
     let totalExpense = 0;
 
-    transactions.forEach(t => {
+    transactions.forEach((t: any) => {
       const amount = Number(t.amount);
       const categoryName = t.category?.name || 'Sem categoria';
       const costCenter = t.costCenter || 'Sem centro';
@@ -111,15 +112,15 @@ export async function GET(request: NextRequest) {
     });
 
     // Cash results by account (excluding credit cards)
-    const cashAccounts = accounts.filter(a => a.type !== 'CREDIT_CARD');
-    const cashResults = cashAccounts.map(account => {
-      const accountTransactions = transactions.filter(t => t.accountId === account.id);
+    const cashAccounts = accounts.filter((a: any) => a.type !== 'CREDIT_CARD');
+    const cashResults = cashAccounts.map((account: any) => {
+      const accountTransactions = transactions.filter((t: any) => t.accountId === account.id);
       const entradas = accountTransactions
-        .filter(t => t.type === 'INCOME')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+        .filter((t: any) => t.type === 'INCOME')
+        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
       const saidas = accountTransactions
-        .filter(t => t.type === 'EXPENSE')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+        .filter((t: any) => t.type === 'EXPENSE')
+        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
       return {
         id: account.id,
@@ -147,11 +148,11 @@ export async function GET(request: NextRequest) {
       });
 
       const income = monthTransactions
-        .filter(t => t.type === 'INCOME')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+        .filter((t: any) => t.type === 'INCOME')
+        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
       const expense = monthTransactions
-        .filter(t => t.type === 'EXPENSE')
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+        .filter((t: any) => t.type === 'EXPENSE')
+        .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
       monthlyData.push({
         month: monthName.charAt(0).toUpperCase() + monthName.slice(1),
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Credit card debt from credit card accounts (negative balance = debt)
-    const creditCardDebt = creditCardAccounts.reduce((sum, cc) => {
+    const creditCardDebt = creditCardAccounts.reduce((sum: number, cc: any) => {
       const balance = Number(cc.balance);
       return sum + (balance < 0 ? Math.abs(balance) : 0);
     }, 0);
@@ -182,24 +183,24 @@ export async function GET(request: NextRequest) {
     };
 
     // Format credit cards from accounts
-    const formattedCreditCards = creditCardAccounts.map(cc => ({
+    const formattedCreditCards = creditCardAccounts.map((cc: any) => ({
       id: cc.id,
       name: cc.name,
       color: cc.color || '#6366f1',
-      limit: 0, // No limit field in Account model
+      limit: Number(cc.creditLimit) || 0,
       currentBalance: Math.abs(Number(cc.balance)),
-      availableLimit: 0,
-      closingDay: 1,
-      dueDay: 10,
+      availableLimit: (Number(cc.creditLimit) || 0) - Math.abs(Number(cc.balance)),
+      closingDay: cc.closingDay || 1,
+      dueDay: cc.dueDay || 10,
     }));
 
     // Goals with progress
-    const goalsWithProgress = goals.map(g => ({
+    const goalsWithProgress = goals.map((g: any) => ({
       id: g.id,
       name: g.name,
       targetAmount: Number(g.targetAmount),
-      currentAmount: Number(g.currentAmount),
-      progress: Number(g.targetAmount) > 0 ? (Number(g.currentAmount) / Number(g.targetAmount)) * 100 : 0,
+      currentAmount: Number(g.currentAmount || 0),
+      progress: Number(g.targetAmount) > 0 ? (Number(g.currentAmount || 0) / Number(g.targetAmount)) * 100 : 0,
     }));
 
     return NextResponse.json({
@@ -211,7 +212,7 @@ export async function GET(request: NextRequest) {
         totalIncome,
         totalExpense,
       },
-      accounts: cashAccounts.map(a => ({
+      accounts: cashAccounts.map((a: any) => ({
         id: a.id,
         name: a.name,
         type: a.type,
