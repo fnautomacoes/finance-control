@@ -29,7 +29,8 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Build the application
-RUN npm run build
+# NEXT_PRIVATE_SKIP_PATCHING ignora a verificação de lockfile que causa falhas
+RUN NEXT_PRIVATE_SKIP_PATCHING=1 npm run build
 
 # ===============================
 # Stage 3: Runner (Production)
