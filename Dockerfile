@@ -8,11 +8,11 @@ FROM node:20-slim AS deps
 RUN apt-get update && apt-get install -y openssl libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json ./
 COPY prisma ./prisma/
 
 # Instala TODAS as dependências (incluindo dev) para o build
-# Usa npm install em vez de npm ci para resolver binários SWC corretos para Linux
+# Não copia package-lock.json para evitar conflitos de plataforma com SWC
 RUN npm install && npx prisma generate
 
 # ===============================
