@@ -24,6 +24,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# DEBUG: Ver o que foi copiado
+RUN echo "=== Listando raiz ===" && ls -la && echo "=== Listando app/ ===" && ls -la app/ || echo "app/ não existe!"
+
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
