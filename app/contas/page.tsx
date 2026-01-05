@@ -457,7 +457,7 @@ export default function ContasPage() {
 
                 <div style={styles.formGroup}>
                   <label style={styles.label}>
-                    Saldo em {new Date(formData.initialDate).toLocaleDateString('pt-BR')} ({formData.currency})
+                    Saldo em {formData.initialDate ? new Date(formData.initialDate).toLocaleDateString('pt-BR') : '-'} ({formData.currency})
                   </label>
                   <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <input
