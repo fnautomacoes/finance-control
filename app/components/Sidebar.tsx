@@ -35,7 +35,7 @@ const menuItems: MenuItem[] = [
     icon: 'flag',
     children: [
       { label: 'Orçamento', href: '/budget' },
-      { label: 'Centros', href: '/cost-centers' },
+      { label: 'Centros', href: '/centros' },
       { label: 'Economia', href: '/savings' },
     ],
   },
@@ -45,10 +45,10 @@ const menuItems: MenuItem[] = [
     label: 'Cadastros',
     icon: 'database',
     children: [
-      { label: 'Categorias', href: '/categories' },
-      { label: 'Centros', href: '/centers' },
-      { label: 'Contas', href: '/accounts' },
-      { label: 'Contatos', href: '/contacts' },
+      { label: 'Categorias', href: '/categorias' },
+      { label: 'Centros', href: '/centros' },
+      { label: 'Contas', href: '/contas' },
+      { label: 'Contatos', href: '/contatos' },
       { label: 'Formas de pagamento', href: '/payment-methods' },
       { label: 'Projetos', href: '/projects' },
       { label: 'Tags', href: '/tags' },
