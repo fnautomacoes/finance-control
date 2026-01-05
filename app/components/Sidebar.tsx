@@ -22,7 +22,7 @@ const menuItems: MenuItem[] = [
     label: 'Movimentações e caixa',
     icon: 'arrows',
     children: [
-      { label: 'Lançamentos', href: '/transactions' },
+      { label: 'Lançamentos', href: '/lancamentos' },
       { label: 'Fluxo', href: '/cashflow' },
       { label: 'A pagar e receber', href: '/payables' },
       { label: 'Pagas e recebidas', href: '/paid' },
