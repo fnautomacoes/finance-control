@@ -205,17 +205,21 @@ model Organization {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relacionamentos
-  members       OrganizationMember[]
-  accounts      Account[]
-  categories    Category[]
-  transactions  Transaction[]
-  costCenters   CostCenter[]
-  projects      Project[]
-  contacts      Contact[]
-  goals         Goal[]
-  assets        Asset[]
-  assetOperations AssetOperation[]
-  auditLogs     AuditLog[]
+  members           OrganizationMember[]
+  accounts          Account[]
+  categories        Category[]
+  transactions      Transaction[]
+  costCenters       CostCenter[]
+  projects          Project[]
+  contacts          Contact[]
+  goals             Goal[]
+  assets            Asset[]
+  assetOperations   AssetOperation[]
+  auditLogs         AuditLog[]
+  paymentMethods    PaymentMethod[]
+  tags              Tag[]
+  contactCategories ContactCategory[]
+  customFields      CustomField[]
 
   @@map("organizations")
 }
@@ -477,6 +481,7 @@ model Project {
 model Contact {
   id             String @id @default(cuid())
   organizationId String @map("organization_id")
+  categoryId     String? @map("category_id")
 
   // Dados básicos
   name     String
@@ -506,12 +511,14 @@ model Contact {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relacionamentos
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     ContactCategory? @relation(fields: [categoryId], references: [id])
   transactions Transaction[]
 
   @@index([organizationId])
   @@index([organizationId, isCustomer])
   @@index([organizationId, isSupplier])
+  @@index([organizationId, categoryId])
   @@map("contacts")
 }
 
@@ -763,4 +770,124 @@ model ExchangeRate {
   @@index([fromCurrency, toCurrency])
   @@index([fromCurrency, toCurrency, date])
   @@map("exchange_rates")
+}
+
+// ===========================================
+// FORMAS DE PAGAMENTO
+// ===========================================
+
+model PaymentMethod {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+  isSystem Boolean @default(false) @map("is_system") // Métodos do sistema não podem ser deletados
+
+  // Ordenação
+  sortOrder Int @default(0) @map("sort_order")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("payment_methods")
+}
+
+// ===========================================
+// TAGS
+// ===========================================
+
+model Tag {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  color          String @default("#8b5cf6")
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+
+  // Ordenação
+  sortOrder Int @default(0) @map("sort_order")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("tags")
+}
+
+// ===========================================
+// CATEGORIAS DE CONTATOS
+// ===========================================
+
+model ContactCategory {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+
+  // Ordenação
+  sortOrder Int @default(0) @map("sort_order")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts     Contact[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("contact_categories")
+}
+
+// ===========================================
+// CAMPOS PERSONALIZADOS
+// ===========================================
+
+model CustomField {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  name           String
+  fieldType      String @default("text") @map("field_type") // text, number, date, select
+  options        Json   @default("[]") // Para campos do tipo select
+
+  // Entidade que este campo se aplica
+  entityType     String @default("contact") @map("entity_type") // contact, transaction, project
+
+  // Se é obrigatório
+  isRequired Boolean @default(false) @map("is_required")
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+
+  // Ordenação
+  sortOrder Int @default(0) @map("sort_order")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, entityType, name])
+  @@index([organizationId])
+  @@index([organizationId, entityType])
+  @@map("custom_fields")
 }
