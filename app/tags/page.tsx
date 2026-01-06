@@ -172,7 +172,7 @@ export default function TagsPage() {
       border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '500',
     },
     buttonGroup: {
-      display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px',
+      display: 'flex', justifyContent: 'flex-end', gap: '12px',
       backgroundColor: '#f8fafc', margin: '-24px', marginTop: '20px',
       padding: '16px 24px', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px',
     },
