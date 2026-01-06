@@ -80,9 +80,16 @@ export default function DashboardPage() {
         const response = await fetch('/api/dashboard');
         if (response.ok) {
           const result = await response.json();
-          setData(result);
-          // Select all accounts by default
-          setSelectedAccounts(new Set(result.accounts.map((a: { id: string }) => a.id)));
+          // Validate that we got proper data
+          if (result && Array.isArray(result.accounts)) {
+            setData(result);
+            // Select all accounts by default
+            setSelectedAccounts(new Set(result.accounts.map((a: { id: string }) => a.id)));
+          } else {
+            console.error('Invalid dashboard data:', result);
+          }
+        } else {
+          console.error('Dashboard API error:', response.status);
         }
       } catch (error) {
         console.error('Error fetching dashboard:', error);
@@ -105,10 +112,11 @@ export default function DashboardPage() {
     });
   };
 
-  // Calculate totals based on selected accounts
-  const selectedCashResults = data?.cashResults.filter(cr => selectedAccounts.has(cr.id)) || [];
-  const totalConfirmed = selectedCashResults.reduce((sum, cr) => sum + cr.confirmedBalance, 0);
-  const totalProjected = selectedCashResults.reduce((sum, cr) => sum + cr.projectedBalance, 0);
+  // Calculate totals based on selected accounts - with defensive checks
+  const cashResults = Array.isArray(data?.cashResults) ? data.cashResults : [];
+  const selectedCashResults = cashResults.filter(cr => selectedAccounts.has(cr.id));
+  const totalConfirmed = selectedCashResults.reduce((sum, cr) => sum + (cr.confirmedBalance || 0), 0);
+  const totalProjected = selectedCashResults.reduce((sum, cr) => sum + (cr.projectedBalance || 0), 0);
 
   if (loading) {
     return (
