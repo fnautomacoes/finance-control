@@ -38,9 +38,16 @@ export default function CentrosPage() {
         return;
       }
       const data = await res.json();
-      setCostCenters(data);
+      // Defensive check: ensure data is an array
+      if (Array.isArray(data)) {
+        setCostCenters(data);
+      } else {
+        console.error('API returned non-array data:', data);
+        setCostCenters([]);
+      }
     } catch (error) {
       console.error('Error fetching cost centers:', error);
+      setCostCenters([]);
     } finally {
       setLoading(false);
     }

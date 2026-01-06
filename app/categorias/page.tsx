@@ -43,9 +43,16 @@ export default function CategoriasPage() {
         return;
       }
       const data = await res.json();
-      setCategories(data);
+      // Defensive check: ensure data is an array
+      if (Array.isArray(data)) {
+        setCategories(data);
+      } else {
+        console.error('API returned non-array data:', data);
+        setCategories([]);
+      }
     } catch (error) {
       console.error('Error fetching categories:', error);
+      setCategories([]);
     } finally {
       setLoading(false);
     }

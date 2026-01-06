@@ -79,9 +79,16 @@ export default function ContasPage() {
         return;
       }
       const data = await res.json();
-      setAccounts(data);
+      // Defensive check: ensure data is an array
+      if (Array.isArray(data)) {
+        setAccounts(data);
+      } else {
+        console.error('API returned non-array data:', data);
+        setAccounts([]);
+      }
     } catch (error) {
       console.error('Error fetching accounts:', error);
+      setAccounts([]);
     } finally {
       setLoading(false);
     }
